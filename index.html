@@ -1,0 +1,383 @@
+import { useState, useEffect } from "react";
+
+// ─── MASTER DATA ────────────────────────────────────────────
+const TALENTS =;
+const CAT_NAME = {1:"攻める・動かす",2:"解く・深める",3:"繋ぐ・響かせる",4:"壊す・生む",5:"守る・整える"};
+const CAT_COLOR = {1:"#FF6B35",2:"#4ECDC4",3:"#FFE66D",4:"#C77DFF",5:"#74C69D"};
+
+const TYPE_MATRIX = {
+  ENTP:{AC:"シリアルアントレプレナー",AS:"発明家",TC:"ジョーカー",TS:"戦略コンサルタント"},
+  INTP:{AC:"理論的デバッガー",AS:"システム研究者",TC:"深淵の哲学者",TS:"マッドサイエンティスト"},
+  INTJ:{AC:"冷徹な軍師",AS:"孤高のイノベーター",TC:"ナレッジマネージャー",TS:"マスタープランナー"},
+  ENTJ:{AC:"覇道の大統領",AS:"冷徹なカリスマ経営者",TC:"規律の創造者",TS:"ベンチャーキャピタリスト"},
+  ENFP:{AC:"情熱の活動家",AS:"自由な旅人",TC:"共感のストーリーテラー",TS:"マルチクリエイター"},
+  INFP:{AC:"癒しのセラピスト",AS:"信念の守護者",TC:"精神小説家",TS:"純粋なる詩人"},
+  ENFJ:{AC:"革新教育者",AS:"魂の講演家",TC:"コミュニティリーダー",TS:"社会活動者"},
+  INFJ:{AC:"理想世界の設計者",AS:"真実の審判者",TC:"精神的メンター",TS:"静かなる預言者"},
+  ISTJ:{AC:"実務スペシャリスト",AS:"鉄壁の守護神",TC:"伝統継承者",TS:"精密アナリスト"},
+  ISFJ:{AC:"おもてなし達人",AS:"家庭の要",TC:"献身的サポーター",TS:"秘蔵アーカイブ"},
+  ESTJ:{AC:"現場総督",AS:"効率神",TC:"法と秩序の番人",TS:"実利の交渉人"},
+  ESFJ:{AC:"社交ホスト",AS:"地域リーダー",TC:"イベントコーディネーター",TS:"慈しみ看護師"},
+  ISTP:{AC:"サバイバル・ガイド",AS:"クラフトマン",TC:"メカニック・エンジニア",TS:"孤高ハンター"},
+  ISFP:{AC:"舞台俳優",AS:"旅人",TC:"芸術家",TS:"音楽家"},
+  ESTP:{AC:"至高の起業家",AS:"トップアスリート",TC:"現場王",TS:"トップディールメイカー"},
+  ESFP:{AC:"舞台主役",AS:"トレンドセッター",TC:"コメディアン",TS:"人生アーティスト"},
+};
+
+const BRANCH_LABEL = {AC:"社会的 × 自己主張",AS:"孤立的 × 自己主張",TC:"社会的 × 神経質",TS:"孤立的 × 神経質"};
+
+// 質問データ (長いため一部省略せずそのまま使用しています)
+const QUESTIONS =;
+
+// ─── SCORING ────────────────────────────────────────────────
+function calcResult(answers) {
+  let E=0,I=0,N=0,S=0,T=0,F=0,J=0,P=0,A=0,Tnervous=0,Social=0,Lone=0;
+  const ts = {};
+  TALENTS.forEach(t => ts=0);
+
+  answers.forEach((val,idx) => {
+    const q = QUESTIONS;
+    const lw = (8-val)/6;
+    const rw = (val-1)/6;
+    const al = q.axisLeft||{}, ar = q.axisRight||{};
+    E+=(al.E||0)*lw+(ar.E||0)*rw; I+=(al.I||0)*lw+(ar.I||0)*rw;
+    N+=(al.N||0)*lw+(ar.N||0)*rw; S+=(al.S||0)*lw+(ar.S||0)*rw;
+    T+=(al.T||0)*lw+(ar.T||0)*rw; F+=(al.F||0)*lw+(ar.F||0)*rw;
+    J+=(al.J||0)*lw+(ar.J||0)*rw; P+=(al.P||0)*lw+(ar.P||0)*rw;
+    A+=(al.A||0)*lw+(ar.A||0)*rw; Tnervous+=(al.Tnervous||0)*lw+(ar.Tnervous||0)*rw;
+    Social+=(al.Social||0)*lw+(ar.Social||0)*rw; Lone+=(al.Lone||0)*lw+(ar.Lone||0)*rw;
+    Object.entries(q.talentLeft||{}).forEach(()=>{ ts=(ts||0)+pts*lw; });
+    Object.entries(q.talentRight||{}).forEach(()=>{ ts=(ts||0)+pts*rw; });
+  });
+
+  const mbti=.join("");
+  const branch=(A>=Tnervous?"A":"T")+(Social>=Lone?"C":"S");
+  const title=TYPE_MATRIX?.||"未知の探究者";
+
+  const maxS=Math.max(...Object.values(ts));
+  const norm={};
+  Object.entries(ts).forEach(()=>{ norm=maxS>0?Math.round(s/maxS*100):0; });
+  const top5=Object.entries(norm).sort((a,b)=>b-a).slice(0,5)
+    .map(()=>({...TALENTS.find(t=>t.id===id),score}));
+
+  return {mbti,branch,title,top5,axes:{E,I,N,S,T,F,J,P,A,Tnervous,Social,Lone}};
+}
+
+// ─── STYLES ─────────────────────────────────────────────────
+const C = {
+  bg:"#0a0a12", gold:"#c8a050", goldDim:"rgba(200,160,80,0.15)",
+  goldBorder:"rgba(200,160,80,0.2)", text:"#f5edd8", muted:"#6a6050",
+  faint:"rgba(255,255,255,0.03)", border:"rgba(255,255,255,0.07)",
+};
+const F = { serif:"'Noto Serif JP',serif", display:"'Cormorant Garamond',serif" };
+
+const GLOBAL_CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300&family=Noto+Serif+JP:wght@300;400;600&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:${C.bg};}
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-thumb{background:#2a2a3a;border-radius:2px;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeDown{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-12px)}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+@keyframes dash{to{stroke-dashoffset:0;}}
+.q-in{animation:fadeUp 0.3s ease forwards;}
+.q-out{animation:fadeDown 0.2s ease forwards;}
+.btn-gold{transition:all 0.25s ease;cursor:pointer;}
+.btn-gold:hover{transform:scale(1.03);box-shadow:0 0 30px rgba(200,160,80,0.3);}
+.btn-ghost{transition:opacity 0.2s;cursor:pointer;}
+.btn-ghost:hover{opacity:0.65;}
+.pill{transition:all 0.15s ease;cursor:pointer;}
+.pill:hover{outline-color:rgba(200,160,80,0.4)!important;}
+input{-webkit-appearance:none;width:100%;height:2px;background:transparent;cursor:pointer;}
+input::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:#c8a050;border:3px solid #0a0a12;box-shadow:0 0 12px rgba(200,160,80,0.5);cursor:pointer;transition:transform 0.15s;}
+input::-webkit-slider-thumb:hover{transform:scale(1.2);}
+input::-webkit-slider-runnable-track{height:2px;border-radius:1px;}
+`;
+
+// ─── MAIN APP ────────────────────────────────────────────────
+export default function App() {
+  const = useState("start");
+  const  = useState(0);
+  const = useState([]);
+  const   = useState(4);
+  const   = useState(null);
+  const       = useState(true);
+
+  function start() { setScreen("quiz"); setQIndex(0); setAnswers([]); setSlider(4); setAnim(true); }
+
+  function next() {
+    const ans =; ans = slider;
+    setAnswers(ans); setAnim(false);
+    setTimeout(() => {
+      if (qIndex+1 >= QUESTIONS.length) { setResult(calcResult(ans)); setScreen("result"); }
+      else { setQIndex(qIndex+1); setSlider(ans??4); setAnim(true); }
+    }, 200);
+  }
+
+  function prev() {
+    if (qIndex===0) return;
+    setAnim(false);
+    setTimeout(() => { setQIndex(qIndex-1); setSlider(answers??4); setAnim(true); }, 200);
+  }
+
+  function retry() { setScreen("start"); setQIndex(0); setAnswers([]); setSlider(4); setResult(null); }
+
+  if (screen==="start") return <StartScreen onStart={start}/>;
+  if (screen==="result") return <ResultScreen result={result} onRetry={retry}/>;
+
+  const q = QUESTIONS;
+  const sections =;
+  const progress = (qIndex/QUESTIONS.length)*100;
+  const SCALE_LABELS =;
+  const SCALE_DESC   =;
+
+  return (
+    <div style={{minHeight:"100vh",background:C.bg,fontFamily:F.serif,color:C.text}}>
+      <style>{GLOBAL_CSS}</style>
+      <div style={{maxWidth:720,margin:"0 auto",padding:"20px 32px 0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <span style={{fontFamily:F.serif,color:C.gold,fontSize:12,letterSpacing:"0.15em",fontWeight:600,opacity:0.8}}>神秘への道 64タイプ診断</span>
+        <span style={{fontFamily:F.display,color:C.gold,fontSize:14,opacity:0.7}}>{qIndex+1} <span style={{opacity:0.3}}>/</span> {QUESTIONS.length}</span>
+      </div>
+      <div style={{maxWidth:720,margin:"14px auto 0",padding:"0 32px"}}>
+        <div style={{height:2,background:"rgba(255,255,255,0.05)",borderRadius:1}}>
+          <div style={{height:"100%",width:`${progress}%`,background:`linear-gradient(90deg,${C.gold},#a07830)`,borderRadius:1,transition:"width 0.4s ease"}}/>
+        </div>
+      </div>
+      <div style={{maxWidth:720,margin:"16px auto 0",padding:"0 32px",display:"flex",alignItems:"center",gap:8,color:C.muted,fontSize:13,fontWeight:500,letterSpacing:"0.1em"}}>
+        <span style={{width:5,height:5,borderRadius:"50%",background:C.gold,opacity:0.5,display:"inline-block"}}/>
+        {q.section}
+      </div>
+      <div style={{maxWidth:720,margin:"24px auto",padding:"0 32px"}} className={anim?"q-in":"q-out"}>
+        <p style={{fontFamily:F.display,color:"rgba(200,160,80,0.5)",fontSize:15,letterSpacing:"0.2em",marginBottom:16,fontWeight:600}}>Q{qIndex+1}</p>
+        <h2 style={{fontSize:"clamp(20px,4.5vw,26px)",color:C.text,fontWeight:700,lineHeight:1.7,marginBottom:36}}>{q.text}</h2>
+        <div style={{display:"flex",gap:12,marginBottom:28}}>
+          {,].map((,side)=>(
+            <div key={lbl} style={{flex:1,background:C.goldDim,border:`1px solid ${C.goldBorder}`,borderRadius:14,padding:"16px 18px"}}>
+              <p style={{fontFamily:F.display,color:C.gold,fontSize:18,fontWeight:700,marginBottom:8,letterSpacing:"0.05em"}}>{lbl}</p>
+              <p style={{color:"#d4c090",fontSize:14,lineHeight:1.8,fontWeight:600}}>{txt}</p>
+            </div>
+          ))}
+        </div>
+        <div style={{display:"flex",gap:4,marginBottom:14}}>
+          {.map(v=>{
+            const active=slider===v;
+            return (
+              <button key={v} className="pill" onClick={()=>setSlider(v)} style={{flex:1,border:"none",borderRadius:8,padding:"10px 2px",background:active?"rgba(200,160,80,0.18)":"rgba(255,255,255,0.03)",outline:active?`1.5px solid ${C.gold}`:`1px solid ${C.border}`,cursor:"pointer"}}>
+                <div style={{width:"100%",height:4,borderRadius:2,background:active?C.gold:"rgba(255,255,255,0.08)",marginBottom:6}}/>
+                <p style={{fontFamily:F.serif,fontSize:9,color:active?C.gold:"#3a3028",lineHeight:1.5,whiteSpace:"pre-line",fontWeight:active?700:400}}>{SCALE_LABELS}</p>
+              </button>
+            );
+          })}
+        </div>
+        <div style={{padding:"4px 0 6px"}}>
+          <input type="range" min={1} max={7} step={1} value={slider} onChange={e=>setSlider(Number(e.target.value))} style={{width:"100%"}}/>
+        </div>
+        <p style={{textAlign:"center",marginTop:10,fontFamily:F.serif,color:C.gold,fontSize:13,fontWeight:600,letterSpacing:"0.05em",minHeight:22}}>
+          {SCALE_DESC}
+          {slider!==4&&<span style={{color:C.muted,fontWeight:400,fontSize:12}}> — {slider<=3?"Aに同意":"Bに同意"}</span>}
+        </p>
+      </div>
+      <div style={{maxWidth:720,margin:"0 auto",padding:"12px 32px 48px",display:"flex",justifyContent:"flex-end",gap:12}}>
+        {qIndex>0&&(
+          <button className="btn-ghost" onClick={prev} style={{fontFamily:F.serif,background:"transparent",border:`1px solid ${C.border}`,borderRadius:50,padding:"12px 24px",color:C.muted,fontSize:13,letterSpacing:"0.05em"}}>← 戻る</button>
+        )}
+        <button className="btn-gold" onClick={next} style={{fontFamily:F.serif,background:`linear-gradient(135deg,${C.gold},#a07830)`,border:"none",borderRadius:50,padding:"12px 36px",color:C.bg,fontSize:14,fontWeight:700,letterSpacing:"0.1em"}}>
+          {qIndex+1===QUESTIONS.length?"結果を見る ✦":"次へ →"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── START SCREEN ────────────────────────────────────────────
+function StartScreen({onStart}) {
+  return (
+    <div style={{minHeight:"100vh",background:C.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"40px 24px",textAlign:"center"}}>
+      <style>{GLOBAL_CSS}</style>
+      <div style={{fontSize:56,animation:"float 4s ease-in-out infinite",marginBottom:24}}>✦</div>
+      <p style={{fontFamily:F.display,color:C.gold,letterSpacing:"0.4em",fontSize:12,marginBottom:12,opacity:0.8,animation:"fadeUp 0.6s ease 0.1s both"}}>64 TYPE DIAGNOSIS</p>
+      <h1 style={{fontFamily:F.serif,fontSize:"clamp(32px,8vw,56px)",color:C.text,fontWeight:700,lineHeight:1.3,marginBottom:8,animation:"fadeUp 0.6s ease 0.2s both"}}>神秘への道</h1>
+      <p style={{fontFamily:F.serif,fontSize:"clamp(16px,3.5vw,22px)",color:"#c8b880",fontWeight:400,marginBottom:16,animation:"fadeUp 0.6s ease 0.25s both"}}>64タイプ診断</p>
+      <p style={{fontFamily:F.serif,color:"#8a7a60",fontSize:16,lineHeight:2,maxWidth:420,marginBottom:8,animation:"fadeUp 0.6s ease 0.3s both",fontWeight:500}}>あなたを診断して、本当の自分に出会いませんか？</p>
+      <p style={{fontFamily:F.serif,color:C.muted,fontSize:13,lineHeight:1.9,maxWidth:400,marginBottom:48,animation:"fadeUp 0.6s ease 0.35s both"}}>
+        90の問いに答えることで、あなたの魂の型・才能の輪郭が浮かび上がる。<br/>
+        16タイプ × 4分岐 × 50の才能スコアによる、唯一無二の自己像。
+      </p>
+      <div style={{display:"flex",gap:12,flexWrap:"wrap",justifyContent:"center",marginBottom:48,animation:"fadeUp 0.6s ease 0.4s both"}}>
+        {.map((t,i)=>(
+          <span key={i} style={{fontFamily:F.serif,color:"#4a4030",fontSize:11,border:`1px solid ${C.goldBorder}`,borderRadius:20,padding:"6px 16px",letterSpacing:"0.1em"}}>{t}</span>
+        ))}
+      </div>
+      <button className="btn-gold" onClick={onStart} style={{fontFamily:F.serif,background:`linear-gradient(135deg,${C.gold},#a07830)`,color:C.bg,border:"none",borderRadius:50,padding:"16px 56px",fontSize:16,fontWeight:700,letterSpacing:"0.15em",animation:"fadeUp 0.6s ease 0.5s both"}}>
+        診断を始める
+      </button>
+      <p style={{marginTop:20,color:"#3a3028",fontSize:12,fontFamily:F.serif,animation:"fadeUp 0.6s ease 0.6s both"}}>所要時間：約15〜20分</p>
+    </div>
+  );
+}
+
+// ─── RESULT SCREEN ───────────────────────────────────────────
+function ResultScreen({result,onRetry}) {
+  const {mbti,branch,title,top5,axes} = result;
+  const = useState("title");
+  const = useState(null);
+  const = useState(true);
+
+  // ⚠️ 修正ポイント: AI生成の代わりに、美しいダミーのSVG紋章を表示します
+  useEffect(()=>{ 
+    setImgLoading(true);
+    setTimeout(() => {
+      const dummySvg = `
+        <svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+          <rect width="400" height="400" fill="#0a0a12"/>
+          <g transform="translate(200, 200)">
+            <circle cx="0" cy="0" r="140" fill="none" stroke="#c8a050" stroke-width="1" stroke-dasharray="4 8" style="animation: spin 30s linear infinite"/>
+            <circle cx="0" cy="0" r="100" fill="none" stroke="#c8a050" stroke-width="0.5" opacity="0.5"/>
+            <polygon points="0,-120 104,60 -104,60" fill="none" stroke="#c8a050" stroke-width="1.5" opacity="0.8" style="animation: spin 20s linear infinite reverse"/>
+            <polygon points="0,120 104,-60 -104,-60" fill="none" stroke="#c8a050" stroke-width="1.5" opacity="0.8" style="animation: spin 20s linear infinite reverse"/>
+            <circle cx="0" cy="0" r="40" fill="none" stroke="#c8a050" stroke-width="2"/>
+            <circle cx="0" cy="0" r="15" fill="#c8a050" opacity="0.9" style="animation: pulse 2s infinite"/>
+          </g>
+        </svg>
+      `;
+      setAiSvg(dummySvg);
+      setImgLoading(false);
+    }, 1500); // ローディング演出のために1.5秒待つ
+  },[]);
+
+  const totals = {EI:axes.E+axes.I,NS:axes.N+axes.S,TF:axes.T+axes.F,JP:axes.J+axes.P};
+  const pct = {
+    E: totals.EI>0?Math.round(axes.E/totals.EI*100):50,
+    N: totals.NS>0?Math.round(axes.N/totals.NS*100):50,
+    T: totals.TF>0?Math.round(axes.T/totals.TF*100):50,
+    J: totals.JP>0?Math.round(axes.J/totals.JP*100):50,
+  };
+
+  const card = {background:"rgba(255,255,255,0.02)",border:`1px solid ${C.goldBorder}`,borderRadius:16,padding:24,marginBottom:16};
+
+  return (
+    <div style={{minHeight:"100vh",background:C.bg,fontFamily:F.serif,color:C.text,overflowY:"auto"}}>
+      <style>{GLOBAL_CSS}</style>
+      <div style={{maxWidth:620,margin:"0 auto",padding:"48px 24px 80px"}}>
+        <div style={{textAlign:"center",marginBottom:36,animation:"fadeUp 0.6s ease"}}>
+          <p style={{fontFamily:F.display,color:C.gold,letterSpacing:"0.4em",fontSize:11,marginBottom:10,opacity:0.7}}>YOUR SOUL ARCHETYPE</p>
+          <div style={{fontSize:56,animation:"pulse 3s ease-in-out infinite",marginBottom:16}}>✦</div>
+          <p style={{fontFamily:F.display,color:"rgba(200,160,80,0.5)",fontSize:13,letterSpacing:"0.3em",marginBottom:8}}>{mbti} — {branch}</p>
+          <h1 style={{fontFamily:F.serif,fontSize:"clamp(28px,7vw,44px)",color:C.text,fontWeight:700,lineHeight:1.3,marginBottom:8}}>{title}</h1>
+          <p style={{fontFamily:F.serif,color:C.muted,fontSize:13,letterSpacing:"0.1em"}}>{BRANCH_LABEL}</p>
+        </div>
+        <div style={{display:"flex",gap:6,marginBottom:20,background:"rgba(255,255,255,0.02)",borderRadius:12,padding:4}}>
+          {[,,].map(()=>(
+            <button key={k} className="btn-ghost" onClick={()=>setTab(k)} style={{flex:1,fontFamily:F.serif,padding:"10px 0",border:"none",borderRadius:8,fontSize:13,background:tab===k?"rgba(200,160,80,0.15)":"transparent",color:tab===k?C.gold:C.muted,letterSpacing:"0.05em"}}>{l}</button>
+          ))}
+        </div>
+
+        {tab==="title" && (
+          <div style={{animation:"fadeUp 0.3s ease"}}>
+            <div style={{...card,padding:0,overflow:"hidden",marginBottom:16}}>
+              {imgLoading && (
+                <div style={{height:280,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:14}}>
+                  <div style={{width:36,height:36,border:"2px solid rgba(200,160,80,0.2)",borderTop:`2px solid ${C.gold}`,borderRadius:"50%",animation:"spin 1s linear infinite"}}/>
+                  <p style={{fontFamily:F.serif,color:C.muted,fontSize:13}}>あなたの魂の紋章を生成中…</p>
+                </div>
+              )}
+              {!imgLoading && aiSvg && (
+                <div>
+                  <div dangerouslySetInnerHTML={{__html:aiSvg}} style={{width:"100%",display:"block"}}/>
+                  <div style={{padding:"10px 18px",borderTop:`1px solid ${C.goldBorder}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <p style={{fontFamily:F.serif,color:C.muted,fontSize:11}}>✦ あなた専用の魂の紋章</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div style={card}>
+              <p style={{fontFamily:F.display,color:C.gold,fontSize:11,letterSpacing:"0.3em",opacity:0.7,marginBottom:14}}>タイプ称号</p>
+              <h2 style={{fontFamily:F.serif,fontSize:28,color:C.text,fontWeight:700,marginBottom:8}}>{title}</h2>
+              <p style={{fontFamily:F.serif,color:C.gold,fontSize:12,opacity:0.7}}>{mbti} × {BRANCH_LABEL}</p>
+            </div>
+            <div style={card}>
+              <p style={{fontFamily:F.display,color:C.gold,fontSize:11,letterSpacing:"0.3em",opacity:0.7,marginBottom:14}}>あなたの才能の組み合わせ</p>
+              <p style={{fontFamily:F.serif,color:"#a09070",fontSize:14,lineHeight:2.0}}>
+                {top5.slice(0,3).map(t=>`「${t.name}」`).join("・")}という3つの才能が組み合わさることで、
+                あなたは単なる{top5?.name}にとどまらず、{top5?.name}視点で物事を捉えながら、
+                最終的に{top5?.name}力で周囲を巻き込んでいく独自のスタイルを持っています。
+                それは{title}としての本質的な強みであり、あなただけの武器です。
+              </p>
+            </div>
+          </div>
+        )}
+
+        {tab==="talent" && (
+          <div style={{animation:"fadeUp 0.3s ease"}}>
+            <div style={card}>
+              <p style={{fontFamily:F.display,color:C.gold,fontSize:11,letterSpacing:"0.3em",opacity:0.7,marginBottom:20}}>才能ランキング TOP5</p>
+              {top5.map((t,i)=>(
+                <div key={t.id} style={{marginBottom:20}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                    <div style={{display:"flex",alignItems:"center",gap:12}}>
+                      <span style={{fontFamily:F.display,color:C.gold,fontSize:20,fontWeight:700,minWidth:26}}>{i+1}</span>
+                      <div>
+                        <span style={{fontFamily:F.serif,color:C.text,fontSize:15,fontWeight:600}}>{t.name}</span>
+                        <span style={{fontFamily:F.serif,color:C.muted,fontSize:11,marginLeft:8}}>{CAT_NAME}</span>
+                      </div>
+                    </div>
+                    <span style={{fontFamily:F.display,color:C.gold,fontSize:18}}>{t.score}</span>
+                  </div>
+                  <div style={{height:3,background:"rgba(255,255,255,0.05)",borderRadius:2,overflow:"hidden"}}>
+                    <div style={{height:"100%",width:`${t.score}%`,background:`linear-gradient(90deg,${CAT_COLOR},${CAT_COLOR}88)`,borderRadius:2,transition:"width 1s ease"}}/>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {tab==="mbti" && (
+          <div style={{animation:"fadeUp 0.3s ease"}}>
+            <div style={card}>
+              <p style={{fontFamily:F.display,color:C.gold,fontSize:11,letterSpacing:"0.3em",opacity:0.7,marginBottom:16}}>MBTIタイプ</p>
+              <p style={{fontFamily:F.display,color:C.gold,fontSize:40,letterSpacing:"0.25em",textAlign:"center",marginBottom:24}}>{mbti}</p>
+              {.map(ax=>(
+                <div key={ax.lk} style={{marginBottom:18}}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                    <span style={{fontFamily:F.serif,color:mbti.includes(ax.lk)?C.gold:"#3a3028",fontSize:13,fontWeight:mbti.includes(ax.lk)?600:400}}>{ax.l}</span>
+                    <span style={{fontFamily:F.serif,color:mbti.includes(ax.rk)?C.gold:"#3a3028",fontSize:13,fontWeight:mbti.includes(ax.rk)?600:400}}>{ax.r}</span>
+                  </div>
+                  <div style={{height:4,background:"rgba(255,255,255,0.05)",borderRadius:2,overflow:"hidden"}}>
+                    <div style={{height:"100%",width:`${ax.v}%`,background:`linear-gradient(90deg,${C.gold},#a07830)`,borderRadius:2}}/>
+                  </div>
+                  <p style={{fontFamily:F.serif,textAlign:"center",color:C.muted,fontSize:11,marginTop:4}}>{ax.v}% {ax.lk}</p>
+                </div>
+              ))}
+            </div>
+            <div style={card}>
+              <p style={{fontFamily:F.display,color:C.gold,fontSize:11,letterSpacing:"0.3em",opacity:0.7,marginBottom:16}}>第2軸スコア</p>
+              {.map(ax=>{
+                const p=ax.tot>0?Math.round(ax.val/ax.tot*100):50;
+                return (
+                  <div key={ax.l} style={{marginBottom:18}}>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                      <span style={{fontFamily:F.serif,color:C.gold,fontSize:13,fontWeight:600}}>{ax.l}</span>
+                      <span style={{fontFamily:F.serif,color:"#3a3028",fontSize:13}}>{ax.r}</span>
+                    </div>
+                    <div style={{height:4,background:"rgba(255,255,255,0.05)",borderRadius:2,overflow:"hidden"}}>
+                      <div style={{height:"100%",width:`${p}%`,background:"linear-gradient(90deg,#7BD3EA,#4ECDC4)",borderRadius:2}}/>
+                    </div>
+                    <p style={{fontFamily:F.serif,textAlign:"center",color:C.muted,fontSize:11,marginTop:4}}>{p}% {ax.l.split(" ")}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        <button className="btn-ghost" onClick={onRetry} style={{display:"block",margin:"32px auto 0",fontFamily:F.serif,background:"rgba(255,255,255,0.03)",border:`1px solid ${C.goldBorder}`,borderRadius:50,padding:"13px 40px",color:C.muted,fontSize:13,letterSpacing:"0.1em"}}>
+          もう一度診断する
+        </button>
+      </div>
+    </div>
+  );
+}
